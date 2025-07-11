@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en" class="dark-mode">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playlist - Peacify</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root { --bg-color: #f9f9f9; --container-bg: white; --text-color: #333; --primary-color: #FF0000; --subtle-text: #666; }
+        html.dark-mode { --bg-color: #121212; --container-bg: #1e1e1e; --text-color: #e0e0e0; --subtle-text: #aaa; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 20px; transition: background-color 0.3s, color 0.3s; }
+        .page-wrapper { max-width: 800px; margin: 0 auto; }
+        .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .header-left { display: flex; align-items: center; min-width: 0; }
+        .back-btn { font-size: 24px; color: var(--primary-color); text-decoration: none; margin-right: 15px; }
+        h1 { color: var(--primary-color); font-size: 24px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #auth-container { display: flex; align-items: center; }
+        #user-profile { display: none; align-items: center; gap: 15px; }
+        #user-photo { width: 40px; height: 40px; border-radius: 50%; }
+        .song-list { display: flex; flex-direction: column; gap: 10px; }
+        .song-item { display: flex; align-items: center; gap: 15px; padding: 10px; background-color: var(--container-bg); border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); text-decoration: none; color: inherit; transition: transform 0.2s, box-shadow 0.2s; }
+        .song-item:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.08); }
+        .song-thumbnail { width: 80px; height: 60px; border-radius: 6px; margin-right: 15px; object-fit: cover; flex-shrink: 0; }
+        .song-info { flex-grow: 1; min-width: 0; }
+        .song-title { font-weight: 600; color: var(--text-color); font-size: 16px; line-height: 1.3; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+        .song-channel { font-size: 14px; color: var(--subtle-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 4px; }
+        #message-area { text-align: center; padding: 40px 20px; font-size: 18px; color: var(--subtle-text); }
+    </style>
+</head>
+<body>
+    <div class="page-wrapper">
+        <div class="header">
+            <div class="header-left">
+                <a href="/saved.html" class="back-btn" title="Back to My Playlists"><i class="fas fa-arrow-left"></i></a>
+                <h1 id="playlist-title">Loading...</h1>
+            </div>
+            <div id="auth-container">
+                <div id="user-profile">
+                    <img id="user-photo" alt="User Profile Picture">
+                </div>
+            </div>
+        </div>
+        <div id="song-list" class="song-list"></div>
+        <div id="message-area"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyD017C-Etf7bw4CP9o29IEqgSn4HAPBtsU",
+            authDomain: "peacify-dbb2d.firebaseapp.com",
+            projectId: "peacify-dbb2d",
+            storageBucket: "peacify-dbb2d.firebasestorage.app",
+            messagingSenderId: "482788661447",
+            appId: "1:482788661447:web:9b284c809c4ea1262086e2",
+            measurementId: "G-WRQ6CHWC8R"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        const playlistTitleEl = document.getElementById('playlist-title');
+        const songListEl = document.getElementById('song-list');
+        const messageAreaEl = document.getElementById('message-area');
+        const userProfileDiv = document.getElementById('user-profile');
+        const userPhotoImg = document.getElementById('user-photo');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const playlistId = params.get('id');
+            if (!playlistId) { messageAreaEl.textContent = 'Error: No playlist specified.'; return; }
+            auth.onAuthStateChanged(user => {
+                if (user) { userProfileDiv.style.display = 'flex'; userPhotoImg.src = user.photoURL; loadPlaylist(user.uid, playlistId); } 
+                else { userProfileDiv.style.display = 'none'; messageAreaEl.textContent = 'Please log in to view your playlists.'; }
+            });
+        });
+
+        async function loadPlaylist(uid, playlistId) {
+            try {
+                const playlistRef = db.collection('users').doc(uid).collection('playlists').doc(playlistId);
+                const playlistDoc = await playlistRef.get();
+                if (!playlistDoc.exists) { messageAreaEl.textContent = 'Playlist not found.'; return; }
+                const playlistData = playlistDoc.data();
+                playlistTitleEl.textContent = playlistData.name;
+                document.title = `${playlistData.name} - Peacify`;
+                const songsSnapshot = await playlistRef.collection('songs').orderBy('addedAt', 'desc').get();
+                const songs = songsSnapshot.docs.map(doc => doc.data());
+                renderSongs(songs, playlistId);
+            } catch (error) { console.error("Error loading playlist:", error); messageAreaEl.textContent = 'Could not load the playlist. Please try again.'; }
+        }
+
+        function renderSongs(songs, playlistId) {
+            songListEl.innerHTML = '';
+            if (songs.length === 0) { messageAreaEl.textContent = 'This playlist is empty. Add songs from the main player!'; return; }
+            songs.forEach(song => {
+                const songItem = document.createElement('a');
+                songItem.className = 'song-item';
+                songItem.href = `/index.html?videoId=${song.videoId}&playlistId=${playlistId}`;
+                songItem.innerHTML = `<img src="${song.thumbnailUrl}" class="song-thumbnail" alt="thumbnail"><div class="song-info"><div class="song-title">${song.title}</div><div class="song-channel">${song.channelTitle}</div></div>`;
+                songListEl.appendChild(songItem);
+            });
+        }
+    </script>
+</body>
+</html>
