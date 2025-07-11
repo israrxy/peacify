@@ -28,24 +28,17 @@ export async function onRequest(context) {
   }
 
   try {
-    // This check MUST happen before the switch for relevant actions.
     if (!YOUTUBE_API_KEY && ['search', 'details', 'trending'].includes(action)) {
       throw new Error('Server configuration error: YouTube API key is not set in Cloudflare secrets.');
     }
     
     switch (action) {
-      // *** THE FIX: The 'debug' action is now correctly placed inside the switch statement ***
       case 'debug': {
-        const isSet = !!YOUTUBE_API_KEY; // Check if the variable exists and is not empty
+        const isSet = !!YOUTUBE_API_KEY;
         const keyLength = isSet ? YOUTUBE_API_KEY.length : 0;
-        
         return new Response(JSON.stringify({
-          keyName: 'data_api',
-          isSet: isSet,
-          length: keyLength,
-          message: isSet 
-            ? "The 'data_api' secret is correctly set and accessible by the function."
-            : "ERROR: The 'data_api' secret was NOT FOUND. Check your Pages project settings under Settings > Environment variables. Make sure it's applied to the Production environment."
+          keyName: 'data_api', isSet: isSet, length: keyLength,
+          message: isSet ? "The 'data_api' secret is correctly set." : "ERROR: The 'data_api' secret was NOT FOUND."
         }), { headers });
       }
 
@@ -63,12 +56,22 @@ export async function onRequest(context) {
         const data = await fetch(apiUrl).then(handleApiResponse);
         return new Response(JSON.stringify(data), { headers });
       }
+      
+      // *** THE FIX IS HERE ***
       case 'trending': {
-        const regionCode = url.searchParams.get('regionCode') || 'IN';
-        const apiUrl = `${YOUTUBE_API_BASE}/videos?part=snippet&chart=mostPopular®ionCode=${regionCode}&maxResults=25&videoCategoryId=10&key=${YOUTUBE_API_KEY}`;
-        const data = await fetch(apiUrl).then(handleApiResponse);
+        // Use a safe URL builder to prevent errors
+        const trendingUrl = new URL(`${YOUTUBE_API_BASE}/videos`);
+        trendingUrl.searchParams.set('part', 'snippet');
+        trendingUrl.searchParams.set('chart', 'mostPopular');
+        trendingUrl.searchParams.set('regionCode', url.searchParams.get('regionCode') || 'IN');
+        trendingUrl.searchParams.set('maxResults', '25');
+        trendingUrl.searchParams.set('videoCategoryId', '10');
+        trendingUrl.searchParams.set('key', YOUTUBE_API_KEY);
+
+        const data = await fetch(trendingUrl.toString()).then(handleApiResponse);
         return new Response(JSON.stringify(data), { headers });
       }
+
       case 'suggestions': {
         const query = url.searchParams.get('query');
         if (!query) return new Response(JSON.stringify([]), { headers });
@@ -88,7 +91,6 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ success: true, transliterated_text: transliteratedText }), { headers });
       }
       default:
-        // This will now only be hit if the action is something other than the cases above
         return new Response(JSON.stringify({ error: `Invalid action specified: '${action}'` }), { status: 400, headers });
     }
   } catch (error) {
