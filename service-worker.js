@@ -28,6 +28,13 @@ self.addEventListener('install', (event) => {
 
 // The fetch event intercepts all network requests.
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Exclude install.html from navigation fetch interception
+  if (event.request.mode === 'navigate' && url.pathname === '/install.html') {
+    return; // Let it load normally
+  }
+
   // For navigation requests (loading HTML pages), use a Network First strategy.
   if (event.request.mode === 'navigate') {
     event.respondWith(
