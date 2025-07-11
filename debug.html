@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Environment Variable Check</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 40px; background-color: #f4f4f7; color: #333; }
+        .container { max-width: 700px; margin: 0 auto; background-color: #fff; padding: 20px 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #111; }
+        code { background-color: #eee; padding: 2px 6px; border-radius: 4px; font-family: "Courier New", Courier, monospace; }
+        .status { padding: 15px; border-radius: 5px; margin-top: 20px; font-weight: bold; }
+        .status.success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .status.error { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .loader { font-size: 18px; font-weight: bold; }
+        a { color: #007bff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cloudflare Environment Secret Check</h1>
+        <p>This page checks if the <code>data_api</code> secret is correctly configured and accessible by the backend function.</p>
+        <hr>
+        <div id="results">
+            <p class="loader">Checking status...</p>
+        </div>
+        <p style="margin-top: 30px;"><a href="/">← Back to Music Player</a></p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const resultsDiv = document.getElementById('results');
+
+            // Call our backend function with the new 'debug' action
+            fetch('/api/data?action=debug')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Network response was not ok (status: ${response.status})`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Clear the "Checking..." message
+                    resultsDiv.innerHTML = '';
+
+                    // Create the status box
+                    const statusBox = document.createElement('div');
+                    statusBox.className = data.isSet ? 'status success' : 'status error';
+                    statusBox.innerHTML = `<strong>Status:</strong> ${data.isSet ? 'SUCCESS' : 'FAILURE'}`;
+                    resultsDiv.appendChild(statusBox);
+
+                    // Display details
+                    const details = document.createElement('ul');
+                    details.innerHTML = `
+                        <li><strong>Secret Name Checked:</strong> <code>${data.keyName}</code></li>
+                        <li><strong>Is it set?</strong> ${data.isSet}</li>
+                        <li><strong>Length of value:</strong> ${data.length} (Should be > 0 if set)</li>
+                        <li style="margin-top: 10px;"><strong>Message:</strong> ${data.message}</li>
+                    `;
+                    resultsDiv.appendChild(details);
+                })
+                .catch(error => {
+                    resultsDiv.innerHTML = `<div class="status error"><strong>An error occurred:</strong> ${error.message}</div>`;
+                });
+        });
+    </script>
+</body>
+</html>
