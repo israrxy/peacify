@@ -32,7 +32,7 @@ export async function onRequest(context) {
       }
 
       case 'details': {
-        const videoId = url.search_params.get('id');
+        const videoId = url.searchParams.get('id');
         if (!videoId) return new Response(JSON.stringify({ error: 'ID parameter is missing' }), { status: 400, headers });
         const apiUrl = `${YOUTUBE_API_BASE}/videos?part=snippet,contentDetails&id=${videoId}&key=${YOUTUBE_API_KEY}`;
         const response = await fetch(apiUrl);
@@ -43,7 +43,9 @@ export async function onRequest(context) {
 
       case 'trending': {
         const regionCode = url.searchParams.get('regionCode') || 'IN'; // Default to India
-        const apiUrl = `${YOUTUBE_API_BASE}/videos?part=snippet&chart=mostPopular®ionCode=${regionCode}&maxResults=25&key=${YOUTUBE_API_KEY}`;
+        // *** THE FIX IS ON THIS LINE ***
+        // We must add &videoCategoryId=10 when using chart=mostPopular
+        const apiUrl = `${YOUTUBE_API_BASE}/videos?part=snippet&chart=mostPopular®ionCode=${regionCode}&maxResults=25&videoCategoryId=10&key=${YOUTUBE_API_KEY}`;
         const response = await fetch(apiUrl);
         if (!response.ok) throw new Error(`YouTube API error (${response.status})`);
         const data = await response.json();
