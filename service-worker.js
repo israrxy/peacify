@@ -7,6 +7,7 @@ const APP_SHELL_FILES = [
   '/saved.html',
   '/playlist.html',
   '/history.html',
+  '/install.html',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/webfonts/fa-solid-900.woff2'
 ];
