@@ -80,6 +80,7 @@
         .suggestion-item:hover { background-color: var(--lyrics-bg); }
         .dark-mode .suggestion-item:hover { background-color: rgba(255, 255, 255, 0.08); }
         .error-message { padding: 20px; text-align: center; font-size: 16px; display: none; color: #D32F2F; background-color: #FFEBEE; border-radius: 8px; margin: 0 10px; }
+        #retrySearchBtn { margin-top: 10px; padding: 8px 12px; border: none; background-color: var(--primary-color); color: white; border-radius: 5px; cursor: pointer; font-size: 14px; }
         #searchResults { flex: 1; overflow-y: auto; padding: 0; background-color: var(--search-results-bg); }
         .results-container { display: flex; flex-direction: column; gap: 10px; padding: 10px; padding-bottom: 10px; transition: padding-bottom 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
         body.mini-player-active .results-container { padding-bottom: 100px; }
@@ -210,7 +211,10 @@
                     <button class="search-btn" onclick="searchYouTube()"><i class="fas fa-search"></i></button>
                 </div>
             </div>
-            <div class="error-message" id="errorMessage"></div>
+            <div class="error-message" id="errorMessage">
+                <span id="errorText"></span>
+                <button id="retrySearchBtn" style="display: none;">Try again with israr-searches</button>
+            </div>
             <div id="searchResults">
                 <div id="skeleton-loader-container" class="results-container" style="display: none;"></div>
                 <div class="results-container" id="resultsContainer"></div>
@@ -333,6 +337,11 @@
         document.getElementById('cancel-create-playlist-btn').onclick = () => { createPlaylistBtn.style.display = 'block'; createSection.style.display = 'none'; };
         document.getElementById('save-new-playlist-btn').onclick = createNewPlaylistAndAddSong;
         let player, progressInterval, lyricsInterval; let lyricsCache = {}; let lyricsVersions = []; let currentLyricsVersionIndex = 0; let playerReady = false, isPlaying = false, isLoopEnabled = false, isShuffleEnabled = false, isDarkMode = false, timeFromUrl = 0; let isVideoMode = false; let currentVideoId = null, currentTrackIndex = -1, currentPlaylist = [], lyricsData = []; const miniPlayer = document.getElementById('miniPlayer'), fullscreenPlayer = document.getElementById('fullscreenPlayer'); let debounceTimer;
+        
+        // <<< NEW/MODIFIED CODE STARTS HERE >>>
+        const API_ENDPOINT_ALTERNATIVE = "https://peacyt-2884d.wasmer.app/v1/";
+        // <<< NEW/MODIFIED CODE ENDS HERE >>>
+
         document.addEventListener('DOMContentLoaded', function() { topLoader.start(); const params = new URLSearchParams(window.location.search); if (params.has('videoId')) { restoreStateFromUrl(); } else { fetchTrending(); } initTheme(); setupVolumeControls(); document.getElementById('themeToggle').addEventListener('click', toggleTheme); document.getElementById('fullscreenAlbumArt').addEventListener('click', toggleVideoMode); const searchQueryInput = document.getElementById('searchQuery'); searchQueryInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { document.getElementById('searchSuggestions').style.display = 'none'; searchYouTube(); } }); searchQueryInput.addEventListener('input', handleSearchInput); document.addEventListener('click', (e) => { const searchWrapper = document.querySelector('.search-input-wrapper'); if (searchWrapper && !searchWrapper.contains(e.target)) { document.getElementById('searchSuggestions').style.display = 'none'; } }); });
         const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
         function simpleCleanTitle(title) { let cleaned = title.replace(/\(.*?\)|\[.*?\]/g, ''); cleaned = cleaned.replace(/official|music|video|audio|lyrics|lyric|hd|4k/gi, ''); cleaned = cleaned.replace(/[-|].*$/, ''); return cleaned.trim(); }
@@ -344,13 +353,87 @@
         function updateMediaSessionState() { if ('mediaSession' in navigator) { navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused'; } }
         function onPlayerStateChange(event) { isPlaying = (event.data === YT.PlayerState.PLAYING); updatePlayPauseButton(); updateMediaSessionState(); if (event.data === YT.PlayerState.PLAYING) { startProgressUpdater(); startLyricsUpdater(); } else { clearInterval(lyricsInterval); if (event.data === YT.PlayerState.PAUSED) { updateUrlState(true); } } if (event.data === YT.PlayerState.ENDED) { isLoopEnabled ? restartCurrentTrack() : skipForward(); } if (event.data === YT.PlayerState.CUED && currentVideoId) { player.playVideo(); } }
         function updateUrlState(replace = false) { if (!currentVideoId) return; const params = new URLSearchParams(window.location.search); params.set('videoId', currentVideoId); if (fullscreenPlayer.classList.contains('visible')) params.set('view', 'fullscreen'); if (playerReady && player.getCurrentTime) { const currentTime = player.getCurrentTime(); if (currentTime > 1) params.set('t', Math.floor(currentTime)); } const newUrl = `${window.location.pathname}?${params.toString()}`; if (replace) history.replaceState({}, '', newUrl); else history.pushState({}, '', newUrl); }
-        async function restoreStateFromUrl() { const params = new URLSearchParams(window.location.search); const videoId = params.get('videoId'); const playlistId = params.get('playlistId'); timeFromUrl = parseInt(params.get('t')) || 0; if (!videoId) { topLoader.finish(); return; } showSkeletonLoader(true); auth.onAuthStateChanged(async user => { if (playlistId && user) { try { const songsSnapshot = await db.collection('users').doc(user.uid).collection('playlists').doc(playlistId).collection('songs').orderBy('addedAt', 'desc').get(); currentPlaylist = songsSnapshot.docs.map(doc => { const song = doc.data(); return { id: { videoId: song.videoId }, snippet: { title: song.title, channelTitle: song.channelTitle, thumbnails: { default: { url: song.thumbnailUrl }, medium: { url: song.thumbnailUrl }, high: { url: song.thumbnailUrl } } } }; }); const trackIndex = currentPlaylist.findIndex(track => track.id.videoId === videoId); if (trackIndex !== -1) { playTrack(trackIndex); if (params.get('view') === 'fullscreen') openFullscreenPlayer(true); } else { throw new Error("Song not found in this playlist."); } } catch (err) { document.getElementById('errorMessage').textContent = 'Could not load playlist: ' + err.message; document.getElementById('errorMessage').style.display = 'block'; } finally { showSkeletonLoader(false); topLoader.finish(); } } else { try { const res = await fetch(`/api/data?action=details&id=${videoId}`); const data = await res.json(); if (data.error) throw new Error(data.error.message || data.error); if (data.items && data.items.length > 0) { const item = data.items[0]; currentPlaylist = [{ id: { videoId: item.id }, snippet: item.snippet }]; playTrack(0); if (params.get('view') === 'fullscreen') openFullscreenPlayer(true); } else { throw new Error("Video not found"); } } catch (err) { document.getElementById('errorMessage').textContent = 'Could not load video: ' + err.message; document.getElementById('errorMessage').style.display = 'block'; } finally { showSkeletonLoader(false); topLoader.finish(); } } }); }
-        function fetchTrending() { showSkeletonLoader(true); fetch(`/api/data?action=trending`).then(response => response.json()).then(data => { if (data.error) throw new Error(`${data.error}`); currentPlaylist = data.items; displayResults(currentPlaylist); }).catch(error => { document.getElementById('errorMessage').textContent = `Error: API Error: ${error.message}.`; document.getElementById('errorMessage').style.display = 'block'; }).finally(() => { showSkeletonLoader(false); topLoader.finish(); }); }
+        async function restoreStateFromUrl() { const params = new URLSearchParams(window.location.search); const videoId = params.get('videoId'); const playlistId = params.get('playlistId'); timeFromUrl = parseInt(params.get('t')) || 0; if (!videoId) { topLoader.finish(); return; } showSkeletonLoader(true); auth.onAuthStateChanged(async user => { if (playlistId && user) { try { const songsSnapshot = await db.collection('users').doc(user.uid).collection('playlists').doc(playlistId).collection('songs').orderBy('addedAt', 'desc').get(); currentPlaylist = songsSnapshot.docs.map(doc => { const song = doc.data(); return { id: { videoId: song.videoId }, snippet: { title: song.title, channelTitle: song.channelTitle, thumbnails: { default: { url: song.thumbnailUrl }, medium: { url: song.thumbnailUrl }, high: { url: song.thumbnailUrl } } } }; }); const trackIndex = currentPlaylist.findIndex(track => track.id.videoId === videoId); if (trackIndex !== -1) { playTrack(trackIndex); if (params.get('view') === 'fullscreen') openFullscreenPlayer(true); } else { throw new Error("Song not found in this playlist."); } } catch (err) { document.getElementById('errorText').textContent = 'Could not load playlist: ' + err.message; document.getElementById('errorMessage').style.display = 'block'; } finally { showSkeletonLoader(false); topLoader.finish(); } } else { try { const res = await fetch(`/api/data?action=details&id=${videoId}`); const data = await res.json(); if (data.error) throw new Error(data.error.message || data.error); if (data.items && data.items.length > 0) { const item = data.items[0]; currentPlaylist = [{ id: { videoId: item.id }, snippet: item.snippet }]; playTrack(0); if (params.get('view') === 'fullscreen') openFullscreenPlayer(true); } else { throw new Error("Video not found"); } } catch (err) { document.getElementById('errorText').textContent = 'Could not load video: ' + err.message; document.getElementById('errorMessage').style.display = 'block'; } finally { showSkeletonLoader(false); topLoader.finish(); } } }); }
+        function fetchTrending() { showSkeletonLoader(true); fetch(`/api/data?action=trending`).then(response => response.json()).then(data => { if (data.error) throw new Error(`${data.error}`); currentPlaylist = data.items; displayResults(currentPlaylist); }).catch(error => { document.getElementById('errorText').textContent = `Error: API Error: ${error.message}.`; document.getElementById('errorMessage').style.display = 'block'; }).finally(() => { showSkeletonLoader(false); topLoader.finish(); }); }
         function handleSearchInput(e) { clearTimeout(debounceTimer); const query = e.target.value.trim(); const suggestionsContainer = document.getElementById('searchSuggestions'); if (query.length < 2) { suggestionsContainer.innerHTML = ''; suggestionsContainer.style.display = 'none'; return; } debounceTimer = setTimeout(() => { fetchSearchSuggestions(query); }, 300); }
         async function fetchSearchSuggestions(query) { const suggestionsContainer = document.getElementById('searchSuggestions'); try { const response = await fetch(`/api/data?action=suggestions&query=${encodeURIComponent(query)}`); if (!response.ok) throw new Error('Network response was not ok for suggestions.'); const suggestions = await response.json(); displaySuggestions(suggestions); } catch (error) { console.error('Error fetching suggestions:', error); suggestionsContainer.style.display = 'none'; } }
         function displaySuggestions(suggestions) { const suggestionsContainer = document.getElementById('searchSuggestions'); if (!suggestions || suggestions.length === 0) { suggestionsContainer.innerHTML = ''; suggestionsContainer.style.display = 'none'; return; } suggestionsContainer.innerHTML = suggestions.map(suggestion => `<div class="suggestion-item" onclick="selectSuggestion('${suggestion.replace(/'/g, "\\'")}')"><i class="fas fa-search"></i> ${suggestion}</div>`).join(''); suggestionsContainer.style.display = 'block'; }
         function selectSuggestion(query) { document.getElementById('searchQuery').value = query; document.getElementById('searchSuggestions').style.display = 'none'; searchYouTube(); }
-        function searchYouTube() { const query = document.getElementById('searchQuery').value.trim(); if (!query) return; topLoader.start(); showSkeletonLoader(true); document.getElementById('resultsContainer').innerHTML = ''; document.getElementById('searchSuggestions').style.display = 'none'; fetch(`/api/data?action=search&query=${encodeURIComponent(query)}`).then(response => response.json()).then(data => { if (data.error) throw new Error(`${data.error}`); currentPlaylist = data.items.filter(item => item.id.videoId); currentPlaylist.forEach(item => { item.originalSearchQuery = query; }); displayResults(currentPlaylist); }).catch(error => { document.getElementById('errorMessage').textContent = `Error: API Error: ${error.message}.`; document.getElementById('errorMessage').style.display = 'block'; }).finally(() => { showSkeletonLoader(false); topLoader.finish(); }); }
+        
+        // <<< NEW/MODIFIED CODE STARTS HERE >>>
+        function searchYouTube(useAlternativeAPI = false) {
+            const query = document.getElementById('searchQuery').value.trim();
+            if (!query) return;
+
+            topLoader.start();
+            showSkeletonLoader(true);
+            document.getElementById('resultsContainer').innerHTML = '';
+            document.getElementById('searchSuggestions').style.display = 'none';
+
+            const errorMessageDiv = document.getElementById('errorMessage');
+            const errorTextSpan = document.getElementById('errorText');
+            const retryBtn = document.getElementById('retrySearchBtn');
+            
+            errorMessageDiv.style.display = 'none';
+            retryBtn.style.display = 'none';
+
+            const officialAPI = `/api/data?action=search&query=${encodeURIComponent(query)}`;
+            const alternativeAPI = `${API_ENDPOINT_ALTERNATIVE}search?q=${encodeURIComponent(query)}`;
+
+            const urlToFetch = useAlternativeAPI ? alternativeAPI : officialAPI;
+            const sourceText = useAlternativeAPI ? "israr-searches" : "official API";
+
+            fetch(urlToFetch)
+                .then(response => {
+                    if (!response.ok) throw new Error(`Network response was not ok (status: ${response.status})`);
+                    return response.json();
+                })
+                .then(data => {
+                    let playlist = [];
+                    
+                    if (!useAlternativeAPI) {
+                        if (data.error) throw new Error(`${data.error}`);
+                        playlist = data.items.filter(item => item.id.videoId);
+                    } else {
+                        if (!Array.isArray(data)) throw new Error("Alternative API returned invalid data format.");
+                        playlist = data.map(item => ({
+                            id: { videoId: item.id },
+                            snippet: {
+                                title: item.title,
+                                channelTitle: item.channel.name,
+                                thumbnails: {
+                                    default: { url: item.thumbnail.default || item.thumbnail.medium },
+                                    medium: { url: item.thumbnail.medium },
+                                    high: { url: item.thumbnail.high }
+                                }
+                            }
+                        }));
+                    }
+
+                    if (playlist.length === 0) {
+                        throw new Error("No results found.");
+                    }
+
+                    currentPlaylist = playlist;
+                    currentPlaylist.forEach(item => { item.originalSearchQuery = query; });
+                    displayResults(currentPlaylist);
+                })
+                .catch(error => {
+                    errorTextSpan.textContent = `Error from ${sourceText}: ${error.message}`;
+                    errorMessageDiv.style.display = 'block';
+                    
+                    if (!useAlternativeAPI) {
+                        retryBtn.style.display = 'inline-block';
+                        retryBtn.onclick = () => searchYouTube(true);
+                    }
+                })
+                .finally(() => {
+                    showSkeletonLoader(false);
+                    topLoader.finish();
+                });
+        }
+        // <<< NEW/MODIFIED CODE ENDS HERE >>>
+
         function displayResults(playlist) { const resultsContainer = document.getElementById('resultsContainer'); if (!playlist || playlist.length === 0) { resultsContainer.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">No results found.</div>'; return; } resultsContainer.innerHTML = playlist.map((item, index) => { const videoId = item.id.videoId || item.id; return `<div class="video-result" data-video-id="${videoId}"><div class="video-main-content" onclick="playTrack(${index})"><img src="${item.snippet.thumbnails.medium.url}" class="video-thumbnail" alt="${item.snippet.title}" loading="lazy"><div class="video-info"><div class="video-title">${item.snippet.title}</div><div class="video-channel">${item.snippet.channelTitle}</div></div></div><div class="action-buttons"><button class="add-to-playlist-btn" onclick="openPlaylistModal(event, ${index})" title="Add to playlist"><i class="fas fa-plus"></i></button><button class="save-btn" onclick="toggleSaveSong(event, ${index})" title="Like Song"><i class="far fa-heart"></i></button></div></div>` }).join(''); updateSaveButtonUI(); }
         function addToHistory(track) { const videoId = track.id.videoId || track.id; if (!videoId) return; let history; try { history = JSON.parse(localStorage.getItem('songHistory')) || []; if (!Array.isArray(history)) history = []; } catch (e) { history = []; } const historyEntry = { id: { videoId: videoId }, snippet: { title: track.snippet.title, channelTitle: track.snippet.channelTitle, thumbnails: track.snippet.thumbnails } }; history = history.filter(item => item && item.id && item.id.videoId !== videoId); history.unshift(historyEntry); if (history.length > 100) { history.length = 100; } localStorage.setItem('songHistory', JSON.stringify(history)); }
         function playTrack(index) { if (!currentPlaylist || index < 0 || index >= currentPlaylist.length) return; if (isVideoMode) { isVideoMode = false; fullscreenPlayer.classList.remove('video-mode'); } currentTrackIndex = index; const track = currentPlaylist[index]; addToHistory(track); currentVideoId = track.id.videoId || track.id; const { title, channelTitle, thumbnails } = track.snippet; const highResThumb = thumbnails.high ? thumbnails.high.url : thumbnails.default.url; if ('mediaSession' in navigator) { navigator.mediaSession.metadata = new MediaMetadata({ title: title, artist: channelTitle, album: 'Peacify', artwork: [{ src: highResThumb, sizes: '512x512', type: 'image/jpeg' }] }); navigator.mediaSession.setActionHandler('play', togglePlay); navigator.mediaSession.setActionHandler('pause', togglePlay); navigator.mediaSession.setActionHandler('previoustrack', skipBackward); navigator.mediaSession.setActionHandler('nexttrack', skipForward); } fetchLyrics(title, track.originalSearchQuery); document.getElementById('miniPlayerTitle').textContent = title; document.getElementById('miniPlayerArtist').textContent = channelTitle; document.getElementById('miniPlayerThumbnail').src = highResThumb; document.getElementById('fullscreenTitle').textContent = title; document.getElementById('fullscreenArtist').textContent = channelTitle; document.getElementById('fullscreenAlbumArt').src = highResThumb; miniPlayer.classList.add('visible'); document.body.classList.add('mini-player-active'); if (playerReady) player.loadVideoById(currentVideoId); updateUrlState(); }
