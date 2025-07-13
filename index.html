@@ -19,6 +19,7 @@
     <link rel="manifest" href="/site.webmanifest">
 
     <style>
+        /* (Your existing CSS is preserved) */
         :root {
             --bg-color: #f9f9f9;
             --container-bg: white;
@@ -183,12 +184,117 @@
         @media (max-width: 480px) { .header-container { padding: 15px; } h1 { font-size: 20px; } .made-by { font-size: 11px; } .search-container { padding: 10px 15px; } .search-box { flex-direction: row; gap: 8px; } .search-input-wrapper { width: 100%; } #searchQuery { padding: 8px 15px; font-size: 15px; } .search-btn { width: auto; padding: 0 18px; font-size: 15px; } #video-display-area { width: 150px; height: 150px; margin-bottom: 20px; } .lyrics-line { font-size: 16px; line-height: 2; } .lyrics-line.active { font-size: 20px; } .mini-player-controls { margin-left: auto; } .volume-control { display: none; } }
         .credit { color: inherit; }
         a { text-decoration: none; }
-        #top-loading-bar { position: fixed; top: 0; left: 0; width: 0; height: 3px; background: var(--bg-color); z-index: 9999; transition: width 0.3s, opacity 0.3s; opacity: 1; }
+        #top-loading-bar { position: fixed; top: 0; left: 0; width: 0; height: 3px; background: var(--primary-color); z-index: 9999; transition: width 0.3s, opacity 0.3s; opacity: 1; }
+        
+        /* === NEW PLAY STORE STYLE INSTALL PAGE === */
+        .install-page-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            z-index: 5000; /* Highest z-index */
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            padding: 0;
+            padding-top: var(--safe-area-inset-top);
+            padding-bottom: var(--safe-area-inset-bottom);
+            overflow-y: auto;
+        }
+        .install-page-content {
+            width: 100%;
+            max-width: 500px; /* Limit width on larger screens */
+        }
+        .install-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 20px;
+        }
+        .install-header .logo {
+            width: 64px;
+            height: 64px;
+            border-radius: 16px;
+            flex-shrink: 0;
+        }
+        .install-header .app-meta {
+            flex-grow: 1;
+        }
+        .install-header h2 {
+            font-size: 20px;
+            font-weight: 600;
+            margin: 0;
+            color: var(--text-color);
+        }
+        .install-header p {
+            font-size: 14px;
+            color: var(--primary-color);
+            margin: 0;
+            font-weight: 500;
+        }
+        .install-button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 24px;
+            border-radius: 20px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background-color 0.2s;
+        }
+        .install-button:hover {
+            background-color: var(--secondary-color);
+        }
+        .install-button:disabled {
+            background-color: #777;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .install-gallery {
+            padding: 0 20px;
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+            margin-top: 12px;
+            padding-bottom: 20px; /* Add some space at the bottom */
+            border-top: 1px solid var(--lyrics-bg);
+            border-bottom: 1px solid var(--lyrics-bg);
+        }
+        .install-gallery::-webkit-scrollbar {
+            height: 6px;
+        }
+        .install-gallery::-webkit-scrollbar-thumb {
+            background: var(--progress-bg);
+            border-radius: 3px;
+        }
+        .install-gallery .screenshot {
+            height: 300px; /* Control screenshot height */
+            width: auto;
+            border-radius: 12px;
+        }
+        .continue-link-container {
+            text-align: center;
+            padding: 20px;
+        }
+        #continue-to-app-btn {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 14px;
+            opacity: 0.7;
+        }
     </style>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body class="dark-mode">
-    <div class="app-container">
+    <div class="app-container" style="display: none;"> <!-- Hidden by default, JS will show it -->
         <!-- Main App Content -->
         <div class="main-content">
             <div class="header-container">
@@ -293,6 +399,29 @@
             </div>
         </div>
     </div>
+    
+    <!-- NEW: Play Store Style Install Page -->
+    <div id="install-page" class="install-page-overlay">
+        <div class="install-page-content">
+            <header class="install-header">
+                <img src="/apple-touch-icon.png" alt="Peacify Logo" class="logo">
+                <div class="app-meta">
+                    <h2>Peacify</h2>
+                    <p>Music & Audio</p>
+                </div>
+                <button id="install-button" class="install-button" disabled>Get</button>
+            </header>
+            <div class="install-gallery">
+                <!-- Replace with your actual screenshot paths -->
+                <img src="/screenshot-1.png" alt="Screenshot of the player" class="screenshot">
+                <img src="/screenshot-2.png" alt="Screenshot of lyrics view" class="screenshot">
+            </div>
+            <div class="continue-link-container">
+                <button id="continue-to-app-btn">Continue to App →</button>
+            </div>
+        </div>
+    </div>
+
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -300,10 +429,104 @@
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
     
     <script>
+        // ==== START OF MODIFIED SCRIPT ====
+
+        // --- PWA Installation Logic ---
+        let deferredPrompt;
+        const appContainer = document.querySelector('.app-container');
+        const installPage = document.getElementById('install-page');
+        const installButton = document.getElementById('install-button');
+        const continueToAppBtn = document.getElementById('continue-to-app-btn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            if (installButton) {
+                installButton.disabled = false; // Enable the button now that we can prompt
+            }
+        });
+
+        async function handleInstall() {
+            if (!deferredPrompt) return;
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                console.log('User accepted the install prompt');
+            }
+            deferredPrompt = null;
+            // After attempting install, hide the install page and show the app
+            hideInstallPageAndShowApp();
+        }
+
+        function hideInstallPageAndShowApp() {
+            installPage.style.display = 'none';
+            appContainer.style.display = 'flex'; // Use 'flex' as per your original CSS
+            if (window.location.search.includes('install=true')) {
+                history.replaceState(null, '', window.location.pathname);
+            }
+        }
+
+        // Add listeners for the new install page buttons
+        if (installButton) {
+            installButton.addEventListener('click', handleInstall);
+        }
+        if (continueToAppBtn) {
+            continueToAppBtn.addEventListener('click', hideInstallPageAndShowApp);
+        }
+
+        // --- Core Application Initialization Flow ---
+        function initializeAppFlow() {
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+            const urlParams = new URLSearchParams(window.location.search);
+
+            if (isStandalone) {
+                // If launched as an installed app, show the app immediately.
+                appContainer.style.display = 'flex';
+                installPage.style.display = 'none';
+                startMainApp();
+            } else if (urlParams.has('install')) {
+                // If in browser and URL has ?install, show the install page.
+                installPage.style.display = 'flex';
+                appContainer.style.display = 'none';
+                // Don't start the main app logic until user continues
+            } else {
+                // If in browser and URL does NOT have ?install, redirect.
+                window.location.href = window.location.pathname + '?install=true';
+                // Stop execution to allow redirect
+            }
+        }
+
+        // Encapsulate your original startup logic into a function
+        function startMainApp() {
+            // (Your existing DOMContentLoaded logic goes here)
+            topLoader.start(); 
+            const params = new URLSearchParams(window.location.search); 
+            if (params.has('videoId')) { 
+                restoreStateFromUrl(); 
+            } else { 
+                fetchTrending(); 
+            } 
+            initTheme(); 
+            setupVolumeControls(); 
+            document.getElementById('themeToggle').addEventListener('click', toggleTheme); 
+            document.getElementById('fullscreenAlbumArt').addEventListener('click', toggleVideoMode); 
+            const searchQueryInput = document.getElementById('searchQuery'); 
+            searchQueryInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { document.getElementById('searchSuggestions').style.display = 'none'; searchYouTube(); } }); 
+            searchQueryInput.addEventListener('input', handleSearchInput); 
+            document.addEventListener('click', (e) => { const searchWrapper = document.querySelector('.search-input-wrapper'); if (searchWrapper && !searchWrapper.contains(e.target)) { document.getElementById('searchSuggestions').style.display = 'none'; } });
+        }
+        
+        // This is the only event listener we need at the top level now
+        document.addEventListener('DOMContentLoaded', initializeAppFlow);
+        
+        // ==== END OF MODIFIED SCRIPT ====
+
+
+        // ==== ALL YOUR ORIGINAL, UNTOUCHED SCRIPT LOGIC BELOW ====
+
         function generateSkeletonHTML(count = 8) { let html = ''; for (let i = 0; i < count; i++) { html += `<div class="skeleton-item"><div class="skeleton skeleton-thumbnail"></div><div class="skeleton-info"><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div></div></div>`; } return html; }
         function showSkeletonLoader(show) { const skeletonContainer = document.getElementById('skeleton-loader-container'); const resultsContainer = document.getElementById('resultsContainer'); if (show) { resultsContainer.style.display = 'none'; skeletonContainer.innerHTML = generateSkeletonHTML(); skeletonContainer.style.display = 'flex'; } else { skeletonContainer.style.display = 'none'; resultsContainer.style.display = 'flex'; } }
         
-        // === YOUR NEW FIREBASE CONFIGURATION ===
         const firebaseConfig = {
             apiKey: "AIzaSyD017C-Etf7bw4CP9o29IEqgSn4HAPBtsU",
             authDomain: "peacify-dbb2d.firebaseapp.com",
@@ -338,11 +561,9 @@
         document.getElementById('save-new-playlist-btn').onclick = createNewPlaylistAndAddSong;
         let player, progressInterval, lyricsInterval; let lyricsCache = {}; let lyricsVersions = []; let currentLyricsVersionIndex = 0; let playerReady = false, isPlaying = false, isLoopEnabled = false, isShuffleEnabled = false, isDarkMode = false, timeFromUrl = 0; let isVideoMode = false; let currentVideoId = null, currentTrackIndex = -1, currentPlaylist = [], lyricsData = []; const miniPlayer = document.getElementById('miniPlayer'), fullscreenPlayer = document.getElementById('fullscreenPlayer'); let debounceTimer;
         
-        // <<< NEW/MODIFIED CODE STARTS HERE >>>
         const API_ENDPOINT_ALTERNATIVE = "https://peacyt-2884d.wasmer.app/v1/";
-        // <<< NEW/MODIFIED CODE ENDS HERE >>>
 
-        document.addEventListener('DOMContentLoaded', function() { topLoader.start(); const params = new URLSearchParams(window.location.search); if (params.has('videoId')) { restoreStateFromUrl(); } else { fetchTrending(); } initTheme(); setupVolumeControls(); document.getElementById('themeToggle').addEventListener('click', toggleTheme); document.getElementById('fullscreenAlbumArt').addEventListener('click', toggleVideoMode); const searchQueryInput = document.getElementById('searchQuery'); searchQueryInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { document.getElementById('searchSuggestions').style.display = 'none'; searchYouTube(); } }); searchQueryInput.addEventListener('input', handleSearchInput); document.addEventListener('click', (e) => { const searchWrapper = document.querySelector('.search-input-wrapper'); if (searchWrapper && !searchWrapper.contains(e.target)) { document.getElementById('searchSuggestions').style.display = 'none'; } }); });
+        // NOTE: The main DOMContentLoaded listener is now replaced by the initializeAppFlow logic at the top of the script
         const tag = document.createElement('script'); tag.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(tag);
         function simpleCleanTitle(title) { let cleaned = title.replace(/\(.*?\)|\[.*?\]/g, ''); cleaned = cleaned.replace(/official|music|video|audio|lyrics|lyric|hd|4k/gi, ''); cleaned = cleaned.replace(/[-|].*$/, ''); return cleaned.trim(); }
         async function fetchLyrics(videoTitle, originalSearchQuery) { const lyricsContainer = document.getElementById('fullscreenLyricsContainer'); lyricsContainer.innerHTML = '<div class="lyrics-loading">Searching for lyrics...</div>'; lyricsData = []; lyricsVersions = []; currentLyricsVersionIndex = 0; document.getElementById('switchLyricsBtn').style.display = 'none'; clearInterval(lyricsInterval); const videoId = currentVideoId; const remixRegex = /sped up|slowed|reverb|lofi/i; if (remixRegex.test(videoTitle)) { lyricsContainer.innerHTML = '<div class="lyrics-error">Lyrics are not available for remixes.</div>'; return; } let titleToSearch = originalSearchQuery || simpleCleanTitle(videoTitle); if (!titleToSearch) { lyricsContainer.innerHTML = '<div class="lyrics-error">Could not determine a title to search for.</div>'; return; } try { const lrclibRes = await fetch(`https://lrclib.net/api/search?track_name=${encodeURIComponent(titleToSearch)}`); const results = await lrclibRes.json(); const allSongIds = results.map(r => r.id).filter(id => id); if (allSongIds.length > 0) { lyricsVersions = allSongIds; fetchCachedLyrics(lyricsVersions[0]); } else { throw new Error(`No lyrics found on LRCLib for "${titleToSearch}".`); } } catch (err) { lyricsContainer.innerHTML = `<div class="lyrics-error">${err.message}</div>`; } }
@@ -359,81 +580,7 @@
         async function fetchSearchSuggestions(query) { const suggestionsContainer = document.getElementById('searchSuggestions'); try { const response = await fetch(`/api/data?action=suggestions&query=${encodeURIComponent(query)}`); if (!response.ok) throw new Error('Network response was not ok for suggestions.'); const suggestions = await response.json(); displaySuggestions(suggestions); } catch (error) { console.error('Error fetching suggestions:', error); suggestionsContainer.style.display = 'none'; } }
         function displaySuggestions(suggestions) { const suggestionsContainer = document.getElementById('searchSuggestions'); if (!suggestions || suggestions.length === 0) { suggestionsContainer.innerHTML = ''; suggestionsContainer.style.display = 'none'; return; } suggestionsContainer.innerHTML = suggestions.map(suggestion => `<div class="suggestion-item" onclick="selectSuggestion('${suggestion.replace(/'/g, "\\'")}')"><i class="fas fa-search"></i> ${suggestion}</div>`).join(''); suggestionsContainer.style.display = 'block'; }
         function selectSuggestion(query) { document.getElementById('searchQuery').value = query; document.getElementById('searchSuggestions').style.display = 'none'; searchYouTube(); }
-        
-        // <<< NEW/MODIFIED CODE STARTS HERE >>>
-        function searchYouTube(useAlternativeAPI = false) {
-            const query = document.getElementById('searchQuery').value.trim();
-            if (!query) return;
-
-            topLoader.start();
-            showSkeletonLoader(true);
-            document.getElementById('resultsContainer').innerHTML = '';
-            document.getElementById('searchSuggestions').style.display = 'none';
-
-            const errorMessageDiv = document.getElementById('errorMessage');
-            const errorTextSpan = document.getElementById('errorText');
-            const retryBtn = document.getElementById('retrySearchBtn');
-            
-            errorMessageDiv.style.display = 'none';
-            retryBtn.style.display = 'none';
-
-            const officialAPI = `/api/data?action=search&query=${encodeURIComponent(query)}`;
-            const alternativeAPI = `${API_ENDPOINT_ALTERNATIVE}search?q=${encodeURIComponent(query)}`;
-
-            const urlToFetch = useAlternativeAPI ? alternativeAPI : officialAPI;
-            const sourceText = useAlternativeAPI ? "israr-searches" : "official API";
-
-            fetch(urlToFetch)
-                .then(response => {
-                    if (!response.ok) throw new Error(`Network response was not ok (status: ${response.status})`);
-                    return response.json();
-                })
-                .then(data => {
-                    let playlist = [];
-                    
-                    if (!useAlternativeAPI) {
-                        if (data.error) throw new Error(`${data.error}`);
-                        playlist = data.items.filter(item => item.id.videoId);
-                    } else {
-                        if (!Array.isArray(data)) throw new Error("Alternative API returned invalid data format.");
-                        playlist = data.map(item => ({
-                            id: { videoId: item.id },
-                            snippet: {
-                                title: item.title,
-                                channelTitle: item.channel.name,
-                                thumbnails: {
-                                    default: { url: item.thumbnail.default || item.thumbnail.medium },
-                                    medium: { url: item.thumbnail.medium },
-                                    high: { url: item.thumbnail.high }
-                                }
-                            }
-                        }));
-                    }
-
-                    if (playlist.length === 0) {
-                        throw new Error("No results found.");
-                    }
-
-                    currentPlaylist = playlist;
-                    currentPlaylist.forEach(item => { item.originalSearchQuery = query; });
-                    displayResults(currentPlaylist);
-                })
-                .catch(error => {
-                    errorTextSpan.textContent = `Error from ${sourceText}: ${error.message}`;
-                    errorMessageDiv.style.display = 'block';
-                    
-                    if (!useAlternativeAPI) {
-                        retryBtn.style.display = 'inline-block';
-                        retryBtn.onclick = () => searchYouTube(true);
-                    }
-                })
-                .finally(() => {
-                    showSkeletonLoader(false);
-                    topLoader.finish();
-                });
-        }
-        // <<< NEW/MODIFIED CODE ENDS HERE >>>
-
+        function searchYouTube(useAlternativeAPI = false) { const query = document.getElementById('searchQuery').value.trim(); if (!query) return; topLoader.start(); showSkeletonLoader(true); document.getElementById('resultsContainer').innerHTML = ''; document.getElementById('searchSuggestions').style.display = 'none'; const errorMessageDiv = document.getElementById('errorMessage'); const errorTextSpan = document.getElementById('errorText'); const retryBtn = document.getElementById('retrySearchBtn'); errorMessageDiv.style.display = 'none'; retryBtn.style.display = 'none'; const officialAPI = `/api/data?action=search&query=${encodeURIComponent(query)}`; const alternativeAPI = `${API_ENDPOINT_ALTERNATIVE}search?q=${encodeURIComponent(query)}`; const urlToFetch = useAlternativeAPI ? alternativeAPI : officialAPI; const sourceText = useAlternativeAPI ? "israr-searches" : "official API"; fetch(urlToFetch).then(response => { if (!response.ok) throw new Error(`Network response was not ok (status: ${response.status})`); return response.json(); }).then(data => { let playlist = []; if (!useAlternativeAPI) { if (data.error) throw new Error(`${data.error}`); playlist = data.items.filter(item => item.id.videoId); } else { if (!Array.isArray(data)) throw new Error("Alternative API returned invalid data format."); playlist = data.map(item => ({ id: { videoId: item.id }, snippet: { title: item.title, channelTitle: item.channel.name, thumbnails: { default: { url: item.thumbnail.default || item.thumbnail.medium }, medium: { url: item.thumbnail.medium }, high: { url: item.thumbnail.high } } } })); } if (playlist.length === 0) { throw new Error("No results found."); } currentPlaylist = playlist; currentPlaylist.forEach(item => { item.originalSearchQuery = query; }); displayResults(currentPlaylist); }).catch(error => { errorTextSpan.textContent = `Error from ${sourceText}: ${error.message}`; errorMessageDiv.style.display = 'block'; if (!useAlternativeAPI) { retryBtn.style.display = 'inline-block'; retryBtn.onclick = () => searchYouTube(true); } }).finally(() => { showSkeletonLoader(false); topLoader.finish(); }); }
         function displayResults(playlist) { const resultsContainer = document.getElementById('resultsContainer'); if (!playlist || playlist.length === 0) { resultsContainer.innerHTML = '<div style="text-align:center;color:#666;padding:20px;">No results found.</div>'; return; } resultsContainer.innerHTML = playlist.map((item, index) => { const videoId = item.id.videoId || item.id; return `<div class="video-result" data-video-id="${videoId}"><div class="video-main-content" onclick="playTrack(${index})"><img src="${item.snippet.thumbnails.medium.url}" class="video-thumbnail" alt="${item.snippet.title}" loading="lazy"><div class="video-info"><div class="video-title">${item.snippet.title}</div><div class="video-channel">${item.snippet.channelTitle}</div></div></div><div class="action-buttons"><button class="add-to-playlist-btn" onclick="openPlaylistModal(event, ${index})" title="Add to playlist"><i class="fas fa-plus"></i></button><button class="save-btn" onclick="toggleSaveSong(event, ${index})" title="Like Song"><i class="far fa-heart"></i></button></div></div>` }).join(''); updateSaveButtonUI(); }
         function addToHistory(track) { const videoId = track.id.videoId || track.id; if (!videoId) return; let history; try { history = JSON.parse(localStorage.getItem('songHistory')) || []; if (!Array.isArray(history)) history = []; } catch (e) { history = []; } const historyEntry = { id: { videoId: videoId }, snippet: { title: track.snippet.title, channelTitle: track.snippet.channelTitle, thumbnails: track.snippet.thumbnails } }; history = history.filter(item => item && item.id && item.id.videoId !== videoId); history.unshift(historyEntry); if (history.length > 100) { history.length = 100; } localStorage.setItem('songHistory', JSON.stringify(history)); }
         function playTrack(index) { if (!currentPlaylist || index < 0 || index >= currentPlaylist.length) return; if (isVideoMode) { isVideoMode = false; fullscreenPlayer.classList.remove('video-mode'); } currentTrackIndex = index; const track = currentPlaylist[index]; addToHistory(track); currentVideoId = track.id.videoId || track.id; const { title, channelTitle, thumbnails } = track.snippet; const highResThumb = thumbnails.high ? thumbnails.high.url : thumbnails.default.url; if ('mediaSession' in navigator) { navigator.mediaSession.metadata = new MediaMetadata({ title: title, artist: channelTitle, album: 'Peacify', artwork: [{ src: highResThumb, sizes: '512x512', type: 'image/jpeg' }] }); navigator.mediaSession.setActionHandler('play', togglePlay); navigator.mediaSession.setActionHandler('pause', togglePlay); navigator.mediaSession.setActionHandler('previoustrack', skipBackward); navigator.mediaSession.setActionHandler('nexttrack', skipForward); } fetchLyrics(title, track.originalSearchQuery); document.getElementById('miniPlayerTitle').textContent = title; document.getElementById('miniPlayerArtist').textContent = channelTitle; document.getElementById('miniPlayerThumbnail').src = highResThumb; document.getElementById('fullscreenTitle').textContent = title; document.getElementById('fullscreenArtist').textContent = channelTitle; document.getElementById('fullscreenAlbumArt').src = highResThumb; miniPlayer.classList.add('visible'); document.body.classList.add('mini-player-active'); if (playerReady) player.loadVideoById(currentVideoId); updateUrlState(); }
